@@ -1,0 +1,11 @@
+number_of_goods: 5
+price:
+  computer: 200€-1000€
+  keyboard: 5€-50€
+  mouse: 4€-7€
+  printer: 100€-300€
+product:
+- computer
+- printer
+- keyboard
+- mouse
