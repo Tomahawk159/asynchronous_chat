@@ -1,10 +1,13 @@
+"""Программа-клиент"""
+
 import sys
 import json
-from socket import *
+from socket import socket, AF_INET, SOCK_STREAM
 import time
 
 
 def main():
+    """Загружаем параметы коммандной строки,разбираем ответ сервера"""
     try:
         server_address = sys.argv[1]
         server_port = int(sys.argv[2])

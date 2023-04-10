@@ -1,9 +1,19 @@
-from socket import *
+"""Программа-сервер"""
+
+from socket import socket, AF_INET, SOCK_STREAM
 import sys
 import json
 
 
 def process_client_message(message):
+    """
+    Обработчик сообщений от клиентов, принимает словарь -
+    сообщение от клиента, проверяет корректность,
+    возвращает словарь-ответ для клиента
+
+    :param message:
+    :return:
+    """
     if (
         "action" in message
         and message["action"] == "presence"
@@ -15,6 +25,12 @@ def process_client_message(message):
 
 
 def main():
+    """
+    Загрузка параметров командной строки, если нет параметров, то задаём значения по умоланию.
+    Сначала обрабатываем порт:
+    server.py -p 0000 -a 0.0.0.0
+    :return:
+    """
     try:
         if "-p" in sys.argv:
             listen_port = int(sys.argv[sys.argv.index("-p") + 1])
