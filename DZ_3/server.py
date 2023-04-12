@@ -24,6 +24,18 @@ def process_client_message(message):
     return {"response": 400, "error": "Bad Request"}
 
 
+def send_msg_client(client, response):
+    """
+    Кодирование и отправка сообщения клиенту
+
+    :param trans:
+    """
+    js_message = json.dumps(response)
+    encoded_message = js_message.encode("utf-8")
+    client.send(encoded_message)
+    client.close()
+
+
 def main():
     """
     Загрузка параметров командной строки, если нет параметров, то задаём значения по умоланию.
@@ -44,13 +56,11 @@ def main():
     except ValueError:
         print("Порт должен быть в диапазоне от 1024 до 65535.")
         sys.exit(1)
-
     try:
         if "-a" in sys.argv:
             listen_address = sys.argv[sys.argv.index("-a") + 1]
         else:
             listen_address = ""
-
     except IndexError:
         print("После параметра 'a'- необходимо указать адрес.")
         sys.exit(1)
@@ -66,11 +76,11 @@ def main():
             json_response = encoded_response.decode("utf-8")
             response = json.loads(json_response)
             print(response)
+
             response = process_client_message(response)
-            js_message = json.dumps(response)
-            encoded_message = js_message.encode("utf-8")
-            client.send(encoded_message)
-            client.close()
+
+            send_msg_client(client, response)
+
         except (ValueError, json.JSONDecodeError):
             print("Принято некорретное сообщение от клиента.")
             client.close()
