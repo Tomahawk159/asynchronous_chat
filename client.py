@@ -4,6 +4,8 @@ import json
 
 from socket import socket, AF_INET, SOCK_STREAM
 
+from log import client_log_config
+
 
 def create_server_message(action, name):
     """
@@ -11,6 +13,8 @@ def create_server_message(action, name):
 
     :param action, name:
     """
+
+    client_log_config.logger.info("Отработала функция create_server_message")
     msg_to_server = {
         "action": action,
         "time": time.time(),
@@ -25,6 +29,8 @@ def send_msg_server(trans):
 
     :param trans:
     """
+
+    client_log_config.logger.info("Отработала функция send_msg_server")
     message_to_server = create_server_message("presence", "guest")
 
     js_message = json.dumps(message_to_server)
@@ -40,24 +46,28 @@ def process_server_message(transport):
 
     :param transport:
     """
+
+    client_log_config.logger.info("Отработала функция process_server_message")
     try:
         encoded_response = transport.recv(4096)
         json_response = encoded_response.decode("utf-8")
         response = json.loads(json_response)
         print(response)
     except (ValueError, json.JSONDecodeError):
-        print("Не удалось декодировать сообщение сервера.")
+        client_log_config.logger.error("Не удалось декодировать сообщение сервера.")
 
 
 def main():
     """Загружаем параметы коммандной строки,разбираем ответ сервера"""
+
+    client_log_config.logger.info("Отработала функция main")
     try:
         server_address = sys.argv[1]
         server_port = int(sys.argv[2])
         if server_port < 1024 or server_port > 65535:
             raise ValueError
     except ValueError:
-        print("Порт должен быть в диапазоне от 1024 до 65535.")
+        client_log_config.logger.error("Порт должен быть в диапазоне от 1024 до 65535.")
         sys.exit(1)
 
     transport = socket(AF_INET, SOCK_STREAM)

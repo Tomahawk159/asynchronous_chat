@@ -3,6 +3,8 @@ import sys
 
 from socket import socket, AF_INET, SOCK_STREAM
 
+from log import server_log_config
+
 
 def process_client_message(message):
     """
@@ -13,6 +15,8 @@ def process_client_message(message):
     :param message:
     :return:
     """
+
+    server_log_config.logger.info("Отработала функция process_client_message")
     if (
         "action" in message
         and message["action"] == "presence"
@@ -29,6 +33,8 @@ def send_msg_client(client, response):
 
     :param trans:
     """
+
+    server_log_config.logger.info("Отработала функция send_msg_client")
     js_message = json.dumps(response)
     encoded_message = js_message.encode("utf-8")
     client.send(encoded_message)
@@ -42,6 +48,8 @@ def main():
     server.py -p 0000 -a 0.0.0.0
     :return:
     """
+
+    server_log_config.logger.info("Отработала функция main")
     try:
         if "-p" in sys.argv:
             listen_port = int(sys.argv[sys.argv.index("-p") + 1])
@@ -50,10 +58,12 @@ def main():
         if listen_port < 1024 or listen_port > 65535:
             raise ValueError
     except IndexError:
-        print("После параметра -'p' необходимо указать номер порта.")
+        server_log_config.logger.critical(
+            "После параметра -'p' необходимо указать номер порта."
+        )
         sys.exit(1)
     except ValueError:
-        print("Порт должен быть в диапазоне от 1024 до 65535.")
+        server_log_config.logger.error("Порт должен быть в диапазоне от 1024 до 65535.")
         sys.exit(1)
     try:
         if "-a" in sys.argv:
@@ -61,7 +71,7 @@ def main():
         else:
             listen_address = ""
     except IndexError:
-        print("После параметра 'a'- необходимо указать адрес.")
+        server_log_config.logger.critical("После параметра 'a'- необходимо указать адрес.")
         sys.exit(1)
 
     transport = socket(AF_INET, SOCK_STREAM)
