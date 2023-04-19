@@ -5,8 +5,10 @@ import json
 from socket import socket, AF_INET, SOCK_STREAM
 
 from log import client_log_config
+from decorators import log
 
 
+@log
 def create_server_message(action, name):
     """
     Создание сообщения для сеервера
@@ -23,6 +25,7 @@ def create_server_message(action, name):
     return msg_to_server
 
 
+@log
 def send_msg_server(trans):
     """
     Кодирование и отправка сообщения серверу
@@ -40,6 +43,7 @@ def send_msg_server(trans):
     process_server_message(trans)
 
 
+@log
 def process_server_message(transport):
     """
     Обработчик сообщений от сервера, проверяет корректность,
@@ -57,6 +61,7 @@ def process_server_message(transport):
         client_log_config.logger.error("Не удалось декодировать сообщение сервера.")
 
 
+@log
 def main():
     """Загружаем параметы коммандной строки,разбираем ответ сервера"""
 
