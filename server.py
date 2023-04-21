@@ -4,8 +4,9 @@ import sys
 from socket import socket, AF_INET, SOCK_STREAM
 
 from log import server_log_config
+from decorators import log
 
-
+@log
 def process_client_message(message):
     """
     Обработчик сообщений от клиентов, принимает словарь -
@@ -27,6 +28,7 @@ def process_client_message(message):
     return {"response": 400, "error": "Bad Request"}
 
 
+@log
 def send_msg_client(client, response):
     """
     Кодирование и отправка сообщения клиенту
@@ -41,6 +43,7 @@ def send_msg_client(client, response):
     client.close()
 
 
+@log
 def main():
     """
     Загрузка параметров командной строки, если нет параметров, то задаём значения по умоланию.
@@ -71,7 +74,9 @@ def main():
         else:
             listen_address = ""
     except IndexError:
-        server_log_config.logger.critical("После параметра 'a'- необходимо указать адрес.")
+        server_log_config.logger.critical(
+            "После параметра 'a'- необходимо указать адрес."
+        )
         sys.exit(1)
 
     transport = socket(AF_INET, SOCK_STREAM)
