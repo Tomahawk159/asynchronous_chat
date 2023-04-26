@@ -1,84 +1,115 @@
-import time
 import sys
 import json
-
-from socket import socket, AF_INET, SOCK_STREAM
+import socket
+import time
 
 from log import client_log_config
 from decorators import log
 
 
 @log
-def create_server_message(action, name):
+def create_presence_message(account_name):
     """
-    Создание сообщения для сеервера
+    Создание сообщения для сервера
 
-    :param action, name:
+    :param account_name:
+    :return:
     """
-
-    client_log_config.logger.info("Отработала функция create_server_message")
-    msg_to_server = {
-        "action": action,
+    client_log_config.logger.info("Формируется сообщение presence")
+    message = {
+        "action": "presence",
         "time": time.time(),
-        "user": {"account_name": name},
+        "user": {"account_name": account_name},
     }
-    return msg_to_server
+    return message
 
 
 @log
-def send_msg_server(trans):
+def create_message(action, text):
     """
-    Кодирование и отправка сообщения серверу
+    Создание сообщения для сервера
 
-    :param trans:
+    :param action:
+    :param text:
+    :return:
     """
-
-    client_log_config.logger.info("Отработала функция send_msg_server")
-    message_to_server = create_server_message("presence", "guest")
-
-    js_message = json.dumps(message_to_server)
-    encoded_message = js_message.encode("utf-8")
-    trans.send(encoded_message)
-
-    process_server_message(trans)
+    client_log_config.logger.info(f"Формируется сообщение {action}")
+    message = {"action": action, "time": time.time(), "from": username, "message": text}
+    return message
 
 
 @log
-def process_server_message(transport):
+def read_message():
     """
-    Обработчик сообщений от сервера, проверяет корректность,
+    Получение сообщения от сервера
 
-    :param transport:
+    :return:
     """
+    client_log_config.logger.info("Ожидание сообщения от сервера")
+    encoded_response = sock.recv(4096)
+    json_response = encoded_response.decode("utf-8")
+    response = json.loads(json_response)
+    return response
 
-    client_log_config.logger.info("Отработала функция process_server_message")
-    try:
-        encoded_response = transport.recv(4096)
-        json_response = encoded_response.decode("utf-8")
-        response = json.loads(json_response)
-        print(response)
-    except (ValueError, json.JSONDecodeError):
-        client_log_config.logger.error("Не удалось декодировать сообщение сервера.")
+
+@log
+def send_message(message):
+    """
+    Отправка сообщения серверу
+
+    :param message:
+    :return:
+    """
+    client_log_config.logger.info("Отправка сообщения серверу")
+    json_message = json.dumps(message)
+    encoded_message = json_message.encode("utf-8")
+    sock.send(encoded_message)
 
 
 @log
 def main():
-    """Загружаем параметы коммандной строки,разбираем ответ сервера"""
+    """
+    Основная функция
+    """
+    global sock, username
 
-    client_log_config.logger.info("Отработала функция main")
     try:
         server_address = sys.argv[1]
         server_port = int(sys.argv[2])
-        if server_port < 1024 or server_port > 65535:
-            raise ValueError
-    except ValueError:
-        client_log_config.logger.error("Порт должен быть в диапазоне от 1024 до 65535.")
+        username = sys.argv[3]
+    except IndexError:
+        client_log_config.logger.error("Не заданы параметры командной строки")
         sys.exit(1)
 
-    transport = socket(AF_INET, SOCK_STREAM)
-    transport.connect((server_address, server_port))
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((server_address, server_port))
+        client_log_config.logger.info("Установлено соединение с сервером")
+    except ConnectionRefusedError:
+        client_log_config.logger.error("Не удалось подключиться к серверу")
+        sys.exit(1)
 
-    send_msg_server(transport)
+    message = create_presence_message(username)
+    send_message(message)
+    response = read_message()
+    client_log_config.logger.info(f"Ответ от сервера: {response}")
+
+    while True:
+        action = input("Введите команду: ")
+
+        if action == "exit":
+            break
+
+        if action == "send":
+            text = input("Введите сообщение: ")
+            message = create_message(action, text)
+            send_message(message)
+            response = read_message()
+            print(response)
+            client_log_config.logger.info(f"Ответ от сервера: {response}")
+
+    sock.close()
+    client_log_config.logger.info("Отключение от сервера")
 
 
 if __name__ == "__main__":
