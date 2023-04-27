@@ -1,7 +1,6 @@
 import json
 import select
 import sys
-import time
 
 from socket import socket, AF_INET, SOCK_STREAM
 
@@ -85,6 +84,13 @@ def main():
     clients = []
     transport = socket(AF_INET, SOCK_STREAM)
     transport.bind((listen_address, listen_port))
+    transport.settimeout(10)
+
+    clients = []
+    messages = []
+
+    names = dict()
+
     transport.listen(10)
 
     while True:
@@ -96,23 +102,41 @@ def main():
         else:
             print("Получен запрос на соединение с %s" % str(addr))
             clients.append(client)
-        finally:
-            w = []
-            try:
-                _, w, _ = select.select([], clients, [], 0)
-            except Exception as e:
-                print(e)
 
-            for s_client in w:
+        recv_data_lst = []
+
+        try:
+            if clients:
+                recv_data_lst = select.select(clients, clients, [], 0)
+        except OSError:
+            pass
+
+        if recv_data_lst:
+            for client_with_message in recv_data_lst:
+                try:
+                    process_client_message(
+                        send_msg_client(client_with_message),
+                        messages,
+                        client_with_message,
+                        clients,
+                        names,
+                    )
+                except Exception:
+                    server_log_config.logger.info(
+                        f"Клиент {client_with_message.getpeername()} "
+                        f"отключился от сервера."
+                    )
+                    clients.remove(client_with_message)
+
+            for s_client in messages:
                 try:
                     encoded_response = s_client.recv(4096)
                     json_response = encoded_response.decode("utf-8")
                     response = json.loads(json_response)
                     print(response)
-                    for s_client in w:
+                    for s_client in messages:
                         process_client_message(response, s_client)
                 except:
-                    # Удаляем клиента, который отключился
                     clients.remove(s_client)
 
 
