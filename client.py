@@ -2,6 +2,7 @@ import sys
 import json
 import socket
 import time
+import threading
 
 from log import client_log_config
 from decorators import log
@@ -33,8 +34,17 @@ def create_message(action, text):
     :param text:
     :return:
     """
+    to_user = input("Введите получателя сообщения: ")
+    message = input("Введите сообщение для отправки: ")
+
     client_log_config.logger.info(f"Формируется сообщение {action}")
-    message = {"action": action, "time": time.time(), "from": username, "message": text}
+    message = {
+        "action": action,
+        "time": time.time(),
+        "from": username,
+        "message": text,
+        "to": to_user,
+    }
     return message
 
 
@@ -67,6 +77,25 @@ def send_message(message):
 
 
 @log
+def user_interactive(sock, username):
+    """Функция взаимодействия с пользователем, запрашивает команды, отправляет сообщения"""
+    while True:
+        command = input("Введите команду: ")
+        if command == "message":
+            create_message(sock, username)
+        elif command == "exit":
+            send_message(sock)
+            print("Завершение соединения.")
+            client_log_config.logger.info("Завершение работы по команде пользователя.")
+            time.sleep(0.5)
+            break
+        else:
+            print(
+                "Команда не распознана, попробойте снова. help - вывести поддерживаемые команды."
+            )
+
+
+@log
 def main():
     """
     Основная функция
@@ -88,6 +117,23 @@ def main():
     except ConnectionRefusedError:
         client_log_config.logger.error("Не удалось подключиться к серверу")
         sys.exit(1)
+    else:
+        receiver = threading.Thread(target=send_message, args=(sock, username))
+        receiver.daemon = True
+        receiver.start()
+
+        user_interface = threading.Thread(
+            target=user_interactive(username=username), args=(sock, username)
+        )
+        user_interface.daemon = True
+        user_interface.start()
+        client_log_config.logger.debug("Запущены процессы")
+
+        while True:
+            time.sleep(1)
+            if receiver.is_alive() and user_interface.is_alive():
+                continue
+            break
 
     message = create_presence_message(username)
     send_message(message)
