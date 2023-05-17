@@ -4,7 +4,7 @@ import json
 import sys
 
 sys.path.append("../")
-from decos import log
+from decorators import log
 
 
 @log

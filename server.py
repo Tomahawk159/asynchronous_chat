@@ -6,7 +6,7 @@ import select
 from common.variables import *
 from common.utils import *
 from decorators import log
-from descrptrs import Port
+from descrptors import Port
 from metaclasses import ServerMaker
 
 logger = logging.getLogger("server")

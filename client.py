@@ -8,9 +8,6 @@ import threading
 from common.variables import *
 from common.utils import *
 from errors import IncorrectDataRecivedError, ReqFieldMissingError, ServerError
-import threading
-
-from log import client_log_config
 
 from decorators import log
 from metaclasses import ClientMaker
@@ -123,26 +120,14 @@ def create_presence(account_name):
 
 
 @log
-def create_message(action, text):
-    """
-    Создание сообщения для сервера
-
-    :param action:
-    :param text:
-    :return:
-    """
-    to_user = input("Введите получателя сообщения: ")
-    message = input("Введите сообщение для отправки: ")
-
-    client_log_config.logger.info(f"Формируется сообщение {action}")
-    message = {
-        "action": action,
-        "time": time.time(),
-        "from": username,
-        "message": text,
-        "to": to_user,
-    }
-    return message
+def process_response_ans(message):
+    logger.debug(f"Разбор приветственного сообщения от сервера: {message}")
+    if RESPONSE in message:
+        if message[RESPONSE] == 200:
+            return "200 : OK"
+        elif message[RESPONSE] == 400:
+            raise ServerError(f"400 : {message[ERROR]}")
+    raise ReqFieldMissingError(RESPONSE)
 
 
 @log
