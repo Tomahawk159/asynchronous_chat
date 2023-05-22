@@ -34,3 +34,5 @@ EXIT = "exit"
 RESPONSE_200 = {RESPONSE: 200}
 # 400
 RESPONSE_400 = {RESPONSE: 400, ERROR: None}
+
+DB_SRV = "sqlite:///server_database.db3"
