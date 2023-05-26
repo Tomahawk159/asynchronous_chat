@@ -12,13 +12,18 @@ from errors import IncorrectDataRecivedError, ReqFieldMissingError, ServerError
 from decorators import log
 from metaclasses import ClientMaker
 
+from db_client import StorageClient
+
 logger = logging.getLogger("client")
+sock_lock = threading.Lock()
+database_lock = threading.Lock()
 
 
 class ClientSender(threading.Thread, metaclass=ClientMaker):
-    def __init__(self, account_name, sock):
+    def __init__(self, account_name, sock, database):
         self.account_name = account_name
         self.sock = sock
+        self.database = database
         super().__init__()
 
     def create_exit_message(self):
@@ -35,12 +40,16 @@ class ClientSender(threading.Thread, metaclass=ClientMaker):
             MESSAGE_TEXT: message,
         }
         logger.debug(f"Сформирован словарь сообщения: {message_dict}")
-        try:
-            send_message(self.sock, message_dict)
-            logger.info(f"Отправлено сообщение для пользователя {to}")
-        except:
-            logger.critical("Потеряно соединение с сервером.")
-            exit(1)
+        with database_lock:
+            self.database.save_message(self.account_name, to, message)
+
+        with sock_lock:
+            try:
+                send_message(self.sock, message_dict)
+                logger.info(f"Отправлено сообщение для пользователя {to}")
+            except:
+                logger.critical("Потеряно соединение с сервером.")
+                exit(1)
 
     def run(self):
         self.print_help()
@@ -51,11 +60,12 @@ class ClientSender(threading.Thread, metaclass=ClientMaker):
             elif command == "help":
                 self.print_help()
             elif command == "exit":
-                try:
-                    send_message(self.sock, self.create_exit_message())
-                except:
-                    pass
-                print("Завершение соединения.")
+                with sock_lock:
+                    try:
+                        send_message(self.sock, self.create_exit_message())
+                    except:
+                        pass
+                    print("Завершение соединения.")
                 logger.info("Завершение работы по команде пользователя.")
                 time.sleep(0.5)
                 break
@@ -72,44 +82,56 @@ class ClientSender(threading.Thread, metaclass=ClientMaker):
 
 
 class ClientReader(threading.Thread, metaclass=ClientMaker):
-    def __init__(self, account_name, sock):
+    def __init__(self, account_name, sock, database):
         self.account_name = account_name
         self.sock = sock
+        self.database = database
         super().__init__()
 
     def run(self):
         while True:
-            try:
-                message = get_message(self.sock)
-                if (
-                    ACTION in message
-                    and message[ACTION] == MESSAGE
-                    and SENDER in message
-                    and "to" in message
-                    and MESSAGE_TEXT in message
-                    and message["to"] == self.account_name
+            time.sleep(1)
+            with sock_lock:
+                try:
+                    message = get_message(self.sock)
+                    if (
+                        ACTION in message
+                        and message[ACTION] == MESSAGE
+                        and SENDER in message
+                        and "to" in message
+                        and MESSAGE_TEXT in message
+                        and message["to"] == self.account_name
+                    ):
+                        print(
+                            f"\nПолучено сообщение от пользователя {message[SENDER]}:\n{message[MESSAGE_TEXT]}"
+                        )
+                        with database_lock:
+                            try:
+                                self.database.save_message(
+                                    message[SENDER],
+                                    self.account_name,
+                                    message[MESSAGE_TEXT],
+                                )
+                            except:
+                                logger.error("Ошибка взаимодействия с базой данных")
+                        logger.info(
+                            f"Получено сообщение от пользователя {message[SENDER]}:\n{message[MESSAGE_TEXT]}"
+                        )
+                    else:
+                        logger.error(
+                            f"Получено некорректное сообщение с сервера: {message}"
+                        )
+                except IncorrectDataRecivedError:
+                    logger.error(f"Не удалось декодировать полученное сообщение.")
+                except (
+                    OSError,
+                    ConnectionError,
+                    ConnectionAbortedError,
+                    ConnectionResetError,
+                    json.JSONDecodeError,
                 ):
-                    print(
-                        f"\nПолучено сообщение от пользователя {message[SENDER]}:\n{message[MESSAGE_TEXT]}"
-                    )
-                    logger.info(
-                        f"Получено сообщение от пользователя {message[SENDER]}:\n{message[MESSAGE_TEXT]}"
-                    )
-                else:
-                    logger.error(
-                        f"Получено некорректное сообщение с сервера: {message}"
-                    )
-            except IncorrectDataRecivedError:
-                logger.error(f"Не удалось декодировать полученное сообщение.")
-            except (
-                OSError,
-                ConnectionError,
-                ConnectionAbortedError,
-                ConnectionResetError,
-                json.JSONDecodeError,
-            ):
-                logger.critical(f"Потеряно соединение с сервером.")
-                break
+                    logger.critical(f"Потеряно соединение с сервером.")
+                    break
 
 
 @log
@@ -188,13 +210,15 @@ def main():
         )
         exit(1)
     else:
-        module_reciver = ClientReader(client_name, transport)
-        module_reciver.daemon = True
-        module_reciver.start()
-        module_sender = ClientSender(client_name, transport)
+        database = StorageClient(client_name)
+
+        module_sender = ClientSender(client_name, transport, database)
         module_sender.daemon = True
         module_sender.start()
         logger.debug("Запущены процессы")
+        module_reciver = ClientReader(client_name, transport, database)
+        module_reciver.daemon = True
+        module_reciver.start()
 
         while True:
             time.sleep(1)
